@@ -35,7 +35,7 @@ except:
 ################################################################################
 def read_machine_type_func():
     read_type = open("/home/admin1/Desktop/dws_record/machine_type.txt", "r")
-    type_sta = []
+    type_sta = ['','']
     x = 0
     for line in read_type:
         type_sta[x] = line.replace('\n','')
@@ -84,6 +84,7 @@ def check_last_keypress():
 def size_check(dim_data,err):
     global arduino_conn
     machine_type = read_machine_type_func()
+    print(machine_type)
     # default_note ['Lenght','width','height','weight'] -> Unit: cm
     # size_compare_note [XS<=1000, S<=4000, M<=8000,L<=15000,XL<=50000, XXL>50000] -> Unit: gram
     # ID send to Monitoring [5-XS, 0-S, 1-M, 2-L, 3-XL, 4-XXL, 6-'---']
