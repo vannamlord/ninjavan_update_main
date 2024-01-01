@@ -53,7 +53,7 @@ aws_instance_port = 3000  # Replace with the port your server is listening on
 # Create a TCP socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Set a timeout for the entire connection process (in seconds)
-timeout_seconds = 5
+timeout_seconds = 10
 client_socket.settimeout(timeout_seconds)
 
 time_update_status = int(datetime.now().strftime("%H")) + 1
@@ -247,7 +247,7 @@ def check_system_status():
     return data
 ################################################################################
 def dws_operation_record():
-    global machine_id,time_update_status
+    global machine_id,time_update_status,aws_instance_port
     while True:
         monitoring_time = int(datetime.now().strftime("%H"))
         if(monitoring_time == time_update_status):
