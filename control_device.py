@@ -220,10 +220,13 @@ def process_tempt_func(data):
 def check_system_status():
     # Return an object
     # Get CPU and memory usage and chip temperature
+    global machine_id
     cpu_percent = 'CPU_Utilization_%:' + str(psutil.cpu_percent(interval=1))
     memory_info = 'RAM_%:'+ str(psutil.virtual_memory()).replace(' ','').split(',')[2].replace('percent=','')
-    disk_usage = subprocess.run(['df','/dev/sda3'],stdout=subprocess.PIPE).\
-        stdout.decode(encoding='utf-8').split('\n')[1].split(' ')
+    try:
+        disk_usage = subprocess.run(['df','/dev/sda3'],stdout=subprocess.PIPE).stdout.decode(encoding='utf-8').split('\n')[1].split(' ')
+    except:
+        disk_usage = subprocess.run(['df','/dev/sda2'],stdout=subprocess.PIPE).stdout.decode(encoding='utf-8').split('\n')[1].split(' ')
     while True:
         try:
             disk_usage.remove('')
