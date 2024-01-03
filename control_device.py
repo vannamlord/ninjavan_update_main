@@ -216,6 +216,7 @@ def process_tempt_func(data):
             replace('(high = +100.0°C, crit = +100.0°C)','').\
                 split(':')[1].replace('°C','').replace('+','')
     return list_tempt
+
 def check_system_status():
     # Return an object
     # Get CPU and memory usage and chip temperature
@@ -235,6 +236,15 @@ def check_system_status():
     except:
         temperature_list_core = ['','','','']
     data = [cpu_percent,memory_info,disk_usage_vol,temperature_list_core]
+    return data
+
+def check_net_sta_func():
+    net_sta = subprocess.run(['ifconfig'],stdout=subprocess.PIPE).stdout.decode(encoding='utf-8').split('\n')
+    net_check_LAN = net_sta[1]
+    if ('inet' in net_check_LAN) and ('netmask' in net_check_LAN):
+        data = 'Connected LAN'
+    else:
+        data = 'Using Wifi'
     return data
 ################################################################################
 def dws_operation_record():
@@ -267,9 +277,10 @@ def dws_operation_record():
             aws_instance_sta = aws_instance.split(':')[1]
             aws_instance_ip = aws_instance.split(':')[0]
             if(aws_instance_sta == 'Running'):
+                net_sta = check_net_sta_func()
                 dws_ops = check_system_status()
                 data_to_send = str(datetime.now()) + '=' + machine_id + '=' + str(dws_ops[0]) + '='  + str(dws_ops[1])\
-                    + '=' + str(dws_ops[2])+ '=' + str(dws_ops[3])
+                    + '=' + str(dws_ops[2])+ '=' + str(dws_ops[3]) + '=' + net_sta
                 try:
                     # Connect to the server
                     client_socket.connect((aws_instance_ip, aws_instance_port))
