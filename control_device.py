@@ -220,7 +220,6 @@ def process_tempt_func(data):
 def check_system_status():
     # Return an object
     # Get CPU and memory usage and chip temperature
-    global machine_id
     cpu_percent = 'CPU_Utilization_%:' + str(psutil.cpu_percent(interval=1))
     memory_info = 'RAM_%:'+ str(psutil.virtual_memory()).replace(' ','').split(',')[2].replace('percent=','')
     try:
@@ -249,6 +248,16 @@ def check_net_sta_func():
     else:
         data = 'Using Wifi'
     return data
+
+def check_ver_dws_func():
+    # Get a list of all items in the directory
+    path = '/var/tmp/nvdws/updates'
+    items = os.listdir(path)
+
+    # Filter out only directories
+    folders = [item for item in items if os.path.isdir(os.path.join(path, item))]
+
+    return folders[len(folders)-1]
 ################################################################################
 def dws_operation_record():
     global machine_id,time_update_status
@@ -282,8 +291,9 @@ def dws_operation_record():
             if(aws_instance_sta == 'Running'):
                 net_sta = check_net_sta_func()
                 dws_ops = check_system_status()
+                version = 'ver:' + check_ver_dws_func()
                 data_to_send = str(datetime.now()) + '=' + machine_id + '=' + str(dws_ops[0]) + '='  + str(dws_ops[1])\
-                    + '=' + str(dws_ops[2])+ '=' + str(dws_ops[3]) + '=' + net_sta
+                    + '=' + str(dws_ops[2])+ '=' + str(dws_ops[3]) + '=' + net_sta + '=' + version
                 try:
                     # Connect to the server
                     client_socket.connect((aws_instance_ip, aws_instance_port))
