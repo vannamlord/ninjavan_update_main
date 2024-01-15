@@ -275,12 +275,16 @@ def dws_operation_record():
                 time_update_status = 0
             else:
                 time_update_status = monitoring_time + 1
+            if (monitoring_time == 6):
+                subprocess.run(['shutdown', 'now' , '-r'])
+                continue
             try:
                 subprocess.run(['rm', '-f','aws_ip_addr.txt'])
                 time.sleep(0.1)
                 subprocess.run(['git','init'])
             except:
                 pass
+            
             repository_path_setup = 'https://github.com/vannamlord/ninjavan_update_aws_ip.git'
             git_pull(repository_path_setup)
             subprocess.run(['rm', '-rf','.git'])
