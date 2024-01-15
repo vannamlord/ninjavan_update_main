@@ -48,6 +48,7 @@ except:
     pass
 ################################################################################
 time_update_status = int(datetime.now().strftime("%H")) + 1
+today_check_reset = datetime.now().strftime("%x")
 ################################################################################
 def read_single_data_func(data):
     try:
@@ -260,7 +261,7 @@ def check_ver_dws_func():
     return folders[len(folders)-1]
 ################################################################################
 def dws_operation_record():
-    global machine_id,time_update_status
+    global machine_id,time_update_status,today_check_reset
     while True:
         # AWS instance public IP address and port
         aws_instance_port = 3000  # Replace with the port your server is listening on
@@ -275,9 +276,23 @@ def dws_operation_record():
                 time_update_status = 0
             else:
                 time_update_status = monitoring_time + 1
-            if (monitoring_time == 6):
-                subprocess.run(['shutdown', 'now' , '-r'])
-                continue
+            file_path = '/home/admin1/Desktop/dws_record/reset_log.txt'
+            try:
+                with open(file_path, 'r') as file:
+                    # Write the data to the file
+                    last_time_reset = file.read()
+                file.close()
+            except:
+                last_time_reset = ''
+            if (last_time_reset != today_check_reset):
+                if (monitoring_time == 6):
+                    with open(file_path, 'w') as file:
+                        # Write the data to the file
+                        time_reset = datetime.now().strftime("%x")
+                        file.write(time_reset)
+                    file.close()
+                    subprocess.run(['shutdown', 'now' , '-r'])
+                    continue
             try:
                 subprocess.run(['rm', '-f','aws_ip_addr.txt'])
                 time.sleep(0.1)
