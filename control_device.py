@@ -9,7 +9,7 @@ import socket
 from datetime import datetime
 from pynput import keyboard
 ################################################################################
-print("New ver 1.0")
+print("New ver 1.1")
 ################################################################################
 last_time_stamp = datetime.now()
 new_event_scan = False
