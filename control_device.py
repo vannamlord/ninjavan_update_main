@@ -29,6 +29,7 @@ default_bulky_parameter = [30.000, 7.000, 5.000, 100.000]
 size_compare = [1000, 4000, 8000, 15000, 50000]
 ################################################################################
 time_update_status = int(datetime.now().strftime("%H")) + 1
+update_status_init = ["lib", "main", "arduino", "zone_task", "", "", ""]
 
 
 ################################################################################
@@ -47,7 +48,41 @@ def read_single_data_func(data):
         return ""
 
 
+##############################################################################################
+def read_update_func(update_status):
+    file_update = open("/home/admin1/Desktop/dws_record/update_status.txt", "r")
+    x = 0
+    for line in file_update:
+        update_status[x] = line.replace("\n", "")
+        x += 1
+    file_update.close()
+    return update_status
+
+
+################################################################################
+
 machine_tag = read_single_data_func("machine_type.txt")
+
+
+################################################################################
+def zone_display_status_func(machine_tag):
+    try:
+        zone_task_hub_status = read_update_func(update_status_init)[3].split(",")
+        for x in zone_task_hub_status:
+            if str(machine_tag).split("-")[1] in x:
+                if "True" in x:
+                    display_zone_status = True
+                else:
+                    display_zone_status = False
+                break
+    except:
+        display_zone_status = False
+    return display_zone_status
+
+
+display_zone_status = zone_display_status_func(machine_tag)
+
+
 ################################################################################
 # MAINTAINX_CORE
 # Global Parameter for payload
@@ -169,7 +204,7 @@ def check_last_keypress():
 
 ################################################################################
 def size_check(dim_data, err):
-    global arduino_conn, default_bulky_parameter, default_small_parameter, size_compare, zone, special_des_task, machine_tag
+    global arduino_conn, default_bulky_parameter, default_small_parameter, size_compare, zone, special_des_task, machine_tag, display_zone_status
     GTC_tag = False
     if "DWS" in machine_tag:
         default = default_small_parameter
@@ -230,8 +265,9 @@ def size_check(dim_data, err):
                     data = f"3-{obj}"
                 else:
                     data = f"4-{obj}"
-                if GTC_tag == False:
-                    data = f"e-{obj}"
+                if display_zone_status == False:
+                    if GTC_tag == False:
+                        data = f"e-{obj}"
                 serial_write_data.write(data.encode("utf-8"))
     except:
         print("Check back connection between IPC and Arduino")
