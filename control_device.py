@@ -77,7 +77,8 @@ def zone_display_status_func(machine_tag):
                 break
     except:
         display_zone_status = False
-    return display_zone_status
+    finally:
+        return display_zone_status
 
 
 display_zone_status = zone_display_status_func(machine_tag)
@@ -204,7 +205,7 @@ def check_last_keypress():
 
 ################################################################################
 def size_check(dim_data, err):
-    global arduino_conn, default_bulky_parameter, default_small_parameter, size_compare, zone, special_des_task, machine_tag, display_zone_status
+    global arduino_conn, default_bulky_parameter, default_small_parameter, size_compare, zone, special_des_task, machine_tag, display_zone_status,zone
     GTC_tag = False
     if "DWS" in machine_tag:
         default = default_small_parameter
@@ -218,11 +219,11 @@ def size_check(dim_data, err):
                 serial_write_data.write(data.encode("utf-8"))
             else:
                 for x in dim_data:
-                    if "GTC" in x:
+                    if "GTC" in str(x):
                         GTC_tag = True
                         break
                 if dim_data[13] != "":
-                    des_task_list = str(dim_data[13]).replace(" ", "").split("-")
+                    des_task_list = str(dim_data[13]).replace(' ', "").replace('"','').split('-')
                     des_id = des_task_list[0] + "-" + des_task_list[1]
                     if des_id not in special_des_task:
                         des_id = des_task_list[0]
