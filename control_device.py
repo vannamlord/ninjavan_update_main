@@ -207,10 +207,11 @@ def check_last_keypress():
 def size_check(dim_data, err):
     global arduino_conn, default_bulky_parameter, default_small_parameter, size_compare, zone, special_des_task, machine_tag, display_zone_status,zone
     GTC_tag = False
-    if "DWS" in machine_tag:
-        default = default_small_parameter
-    else:
+    machine_type = machine_tag.split('-')
+    if "B" in machine_type[2]:
         default = default_bulky_parameter
+    else:
+        default = default_small_parameter
     try:
         if arduino_conn == True:
             if err == "err":
