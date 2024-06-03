@@ -205,7 +205,7 @@ def check_last_keypress():
 
 ################################################################################
 def size_check(dim_data, err):
-    global arduino_conn, default_bulky_parameter, default_small_parameter, size_compare, zone, special_des_task, machine_tag, display_zone_status,zone
+    global arduino_conn, default_bulky_parameter, default_small_parameter, size_compare, zone, special_des_task, machine_tag, display_zone_status
     GTC_tag = False
     machine_type = machine_tag.split('-')
     if "B" in machine_type[2]:
@@ -230,8 +230,8 @@ def size_check(dim_data, err):
                         des_id = des_task_list[0]
                     obj = 0
                     for x in zone:
+                        obj += 1
                         if des_id in x:
-                            obj += 1
                             break
                     if obj == 0:
                         obj = "e"
