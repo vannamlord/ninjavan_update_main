@@ -10,28 +10,11 @@ from datetime import datetime
 from pynput import keyboard
 import requests
 import json
-
 ################################################################################
-print("New ver 1.2")
-################################################################################
-last_time_stamp = datetime.now()
-new_event_scan = False
-tid = ""
-################################################################################
-# MODULE_CHECK_SIZE_CORE
-# default_note ['Lenght','width','height','weight'] -> Unit: cm
-# size_compare_note [XS<=1000, S<=4000, M<=8000,L<=15000,XL<=50000, XXL>50000] -> Unit: gram
-# ID send to Monitoring [5-XS, 0-S, 1-M, 2-L, 3-XL, 4-XXL, 'e'-'---']
-# recipe_note = (raw_lenght*raw_width*raw_height)/6 -> Scale to gram
-
-default_small_parameter = [5.000, 3.500, 1.500, 50.000]
-default_bulky_parameter = [30.000, 7.000, 5.000, 100.000]
-size_compare = [1000, 4000, 8000, 15000, 50000]
-################################################################################
-time_update_status = int(datetime.now().strftime("%H")) + 1
-update_status_init = ["lib", "main", "arduino", "zone_task", "", "", ""]
+print("New ver 1.3")
 
 
+# region init_data_fucntion
 ################################################################################
 def read_single_data_func(data):
     try:
@@ -48,7 +31,7 @@ def read_single_data_func(data):
         return ""
 
 
-##############################################################################################
+################################################################################
 def read_update_func(update_status):
     file_update = open("/home/admin1/Desktop/dws_record/update_status.txt", "r")
     x = 0
@@ -60,55 +43,33 @@ def read_update_func(update_status):
 
 
 ################################################################################
-
-machine_tag = read_single_data_func("machine_type.txt")
-
-
-################################################################################
 def zone_display_status_func(machine_tag):
     try:
-        zone_task_hub_status = read_update_func(update_status_init)[3].split(",")
-        for x in zone_task_hub_status:
-            if str(machine_tag).split("-")[1] in x:
-                if "True" in x:
-                    display_zone_status = True
-                else:
-                    display_zone_status = False
-                break
+        zone_task_hub_status = read_update_func(update_status_init)[3]
+        list_zone_task_hub_status = zone_task_hub_status.split(',')
+        list_zone_task_hub_status.pop(0)
+        if(str(machine_tag).split('-')[1] not in zone_task_hub_status):
+            raise Exception
+        else:
+            for x in list_zone_task_hub_status:
+                if str(machine_tag).split('-')[1] in x:
+                    if "True" in x:
+                        display_zone_status = True
+                    else:
+                        if(';' in x):
+                            list_exception_machine = x.split(';')
+                            list_exception_machine.pop(0)
+                            if (str(machine_tag).split('-')[2] in list_exception_machine):
+                                display_zone_status = True
+                            else:
+                                raise Exception
+                        else:
+                            raise Exception
+                    break
     except:
         display_zone_status = False
     finally:
         return display_zone_status
-
-
-display_zone_status = zone_display_status_func(machine_tag)
-
-
-################################################################################
-# MAINTAINX_CORE
-# Global Parameter for payload
-# Define the bearer token
-bearer_token = read_single_data_func("bearer_token.txt")
-################################################################################
-# KEY HOOK
-# Define the time interval (in seconds)
-TIME_INTERVAL = 0.5
-# Variable to store the last keypress time
-last_keypress_time = None
-################################################################################
-# Make serial connection with Arduino
-arduino_conn = True
-try:
-    if os.path.exists("/dev/ttyACM0"):
-        serial_write_data = serial.Serial("/dev/ttyACM0", baudrate=57600, timeout=2)
-    elif os.path.exists("/dev/ttyACM1"):
-        serial_write_data = serial.Serial("/dev/ttyACM1", baudrate=57600, timeout=2)
-    else:
-        arduino_conn = False
-except:
-    arduino_conn = False
-    print("No connect with Arduino")
-    pass
 
 
 ################################################################################
@@ -122,7 +83,7 @@ def read_zone_task_func(zone_ops):
     return zone_ops
 
 
-##############################################################################################
+################################################################################
 def git_pull(repository_path):
     try:
         subprocess.run(["git", "init"])
@@ -135,41 +96,9 @@ def git_pull(repository_path):
         print("Please check Internet")
 
 
+# endregion
 ################################################################################
-zone_ops = ["1-HCM", "2-HAN", "3-DNG", "4-KHH", "5-GIL", "6-DAK", "7-NGA"]
-# And 'e' flag when error code HTTP 500 or update new TID on database
-special_des_task = [
-    "NGA-DienChau",
-    "NGA-HoangMai",
-    "NGA-NghiLoc",
-    "BIT-TuyPhong",
-    "BIT-BacBinh",
-    "QUA-PhuocSon",
-    "BID-TaySon",
-]
-zone = read_zone_task_func(zone_ops)
-
-
-################################################################################
-def get_last_time_stamp():
-    p = subprocess.run(
-        'sqlite3 -header -csv /var/tmp/nvdws/details.sqlite "select * from measurements ORDER BY timestamp DESC LIMIT 1;"',
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        shell=True,
-    )
-    data = p.stdout.decode("utf-8")
-    if data == "":
-        time_stamp = ""
-        return time_stamp
-    else:
-        global_data = data.split("\n")[1].split(",")
-        global_data[0] = datetime.strptime(
-            global_data[0].replace("T", " ").replace("+07:00", ""), f"%Y-%m-%d %H:%M:%S"
-        )
-        return global_data
-
-
+# region hook_keyboard_fuction
 ################################################################################
 # Hookkey function
 def on_press(key):
@@ -203,11 +132,33 @@ def check_last_keypress():
         time.sleep(0.1)
 
 
+# endregion
 ################################################################################
+# region module_size_check_function
+################################################################################
+def get_last_time_stamp():
+    p = subprocess.run(
+        'sqlite3 -header -csv /var/tmp/nvdws/details.sqlite "select * from measurements ORDER BY timestamp DESC LIMIT 1;"',
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=True,
+    )
+    data = p.stdout.decode("utf-8")
+    if data == "":
+        time_stamp = ""
+        return time_stamp
+    else:
+        global_data = data.split("\n")[1].split(",")
+        global_data[0] = datetime.strptime(
+            global_data[0].replace("T", " ").replace("+07:00", ""), f"%Y-%m-%d %H:%M:%S"
+        )
+        return global_data
+
+
 def size_check(dim_data, err):
     global arduino_conn, default_bulky_parameter, default_small_parameter, size_compare, zone, special_des_task, machine_tag, display_zone_status
     GTC_tag = False
-    machine_type = machine_tag.split('-')
+    machine_type = machine_tag.split("-")
     if "B" in machine_type[2]:
         default = default_bulky_parameter
     else:
@@ -224,7 +175,9 @@ def size_check(dim_data, err):
                         GTC_tag = True
                         break
                 if dim_data[13] != "":
-                    des_task_list = str(dim_data[13]).replace(' ', "").replace('"','').split('-')
+                    des_task_list = (
+                        str(dim_data[13]).replace(" ", "").replace('"', "").split("-")
+                    )
                     des_id = des_task_list[0] + "-" + des_task_list[1]
                     if des_id not in special_des_task:
                         des_id = des_task_list[0]
@@ -292,7 +245,9 @@ def get_size_data():
                     new_event_scan = False
 
 
+# endregion
 ################################################################################
+# region process_IPC_data_function
 # Record IPC status
 def process_tempt_func():
     list_tempt = ["", "", "", ""]
@@ -407,6 +362,9 @@ def check_software_sta_func():
     return data
 
 
+# endregion
+################################################################################
+# region call_API_MaintainX_function
 ################################################################################
 # API MaintainX working
 def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
@@ -627,6 +585,72 @@ def maintainX_API_get_workorders_status(
         pass
 
 
+# endregion
+################################################################################
+# region init_variable
+machine_tag = read_single_data_func("machine_type.txt")
+
+last_time_stamp = datetime.now()
+new_event_scan = False
+tid = ""
+##############################################################################################
+# MODULE_CHECK_SIZE_CORE
+# default_note ['Lenght','width','height','weight'] -> Unit: cm
+# size_compare_note [XS<=1000, S<=4000, M<=8000,L<=15000,XL<=50000, XXL>50000] -> Unit: gram
+# ID send to Monitoring [5-XS, 0-S, 1-M, 2-L, 3-XL, 4-XXL, 'e'-'---']
+# recipe_note = (raw_lenght*raw_width*raw_height)/6 -> Scale to gram
+
+default_small_parameter = [5.000, 3.500, 1.500, 50.000]
+default_bulky_parameter = [30.000, 7.000, 5.000, 100.000]
+size_compare = [1000, 4000, 8000, 15000, 50000]
+################################################################################
+time_update_status = int(datetime.now().strftime("%H")) + 1
+update_status_init = ["lib", "main", "arduino", "zone_task", "", "", ""]
+################################################################################
+
+# KEY HOOK
+# Define the time interval (in seconds)
+TIME_INTERVAL = 0.5
+# Variable to store the last keypress time
+last_keypress_time = None
+################################################################################
+# MAINTAINX_CORE
+# Global Parameter for payload
+# Define the bearer token
+bearer_token = read_single_data_func("bearer_token.txt")
+################################################################################
+# Make serial connection with Arduino
+arduino_conn = True
+try:
+    if os.path.exists("/dev/ttyACM0"):
+        serial_write_data = serial.Serial("/dev/ttyACM0", baudrate=57600, timeout=2)
+    elif os.path.exists("/dev/ttyACM1"):
+        serial_write_data = serial.Serial("/dev/ttyACM1", baudrate=57600, timeout=2)
+    else:
+        arduino_conn = False
+except:
+    arduino_conn = False
+    print("No connect with Arduino")
+    pass
+
+################################################################################
+zone_ops = ["1-HCM", "2-HAN", "3-DNG", "4-KHH", "5-GIL", "6-DAK", "7-NGA"]
+# And 'e' flag when error code HTTP 500 or update new TID on database
+special_des_task = [
+    "NGA-DienChau",
+    "NGA-HoangMai",
+    "NGA-NghiLoc",
+    "BIT-TuyPhong",
+    "BIT-BacBinh",
+    "QUA-PhuocSon",
+    "BID-TaySon",
+]
+zone = read_zone_task_func(zone_ops)
+
+display_zone_status = zone_display_status_func(machine_tag)
+
+
+# endregion
 ################################################################################
 def dws_operation_record_AWS():
     global machine_tag, time_update_status, bearer_token
