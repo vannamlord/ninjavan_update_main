@@ -10,11 +10,13 @@ from datetime import datetime
 from pynput import keyboard
 import requests
 import json
+
 ################################################################################
-print("New ver 1.3")
+print("New ver 1.4")
+tool_version = "1.4"
 
 
-# region init_data_fucntion
+# region get_data_init_fucntion
 ################################################################################
 def read_single_data_func(data):
     try:
@@ -46,20 +48,20 @@ def read_update_func(update_status):
 def zone_display_status_func(machine_tag):
     try:
         zone_task_hub_status = read_update_func(update_status_init)[3]
-        list_zone_task_hub_status = zone_task_hub_status.split(',')
+        list_zone_task_hub_status = zone_task_hub_status.split(",")
         list_zone_task_hub_status.pop(0)
-        if(str(machine_tag).split('-')[1] not in zone_task_hub_status):
+        if str(machine_tag).split("-")[1] not in zone_task_hub_status:
             raise Exception
         else:
             for x in list_zone_task_hub_status:
-                if str(machine_tag).split('-')[1] in x:
+                if str(machine_tag).split("-")[1] in x:
                     if "True" in x:
                         display_zone_status = True
                     else:
-                        if(';' in x):
-                            list_exception_machine = x.split(';')
+                        if ";" in x:
+                            list_exception_machine = x.split(";")
                             list_exception_machine.pop(0)
-                            if (str(machine_tag).split('-')[2] in list_exception_machine):
+                            if str(machine_tag).split("-")[2] in list_exception_machine:
                                 display_zone_status = True
                             else:
                                 raise Exception
@@ -653,7 +655,7 @@ display_zone_status = zone_display_status_func(machine_tag)
 # endregion
 ################################################################################
 def dws_operation_record_AWS():
-    global machine_tag, time_update_status, bearer_token
+    global machine_tag, time_update_status, bearer_token, tool_version
     while True:
         # AWS instance public IP address and port
         aws_instance_port = 3000  # Replace with the port your server is listening on
@@ -706,6 +708,7 @@ def dws_operation_record_AWS():
                         "net_sta": software_monitoring[0],
                         "latest_ver": software_monitoring[1],
                         "time_zone": software_monitoring[2],
+                        "tool_version": tool_version,
                     }
                 }
                 try:
