@@ -12,8 +12,8 @@ import requests
 import json
 
 ################################################################################
-print("New ver 1.4")
-tool_version = "1.4"
+print("New ver 1.5")
+tool_version = "1.5"
 
 
 # region get_data_init_fucntion
@@ -318,10 +318,16 @@ def check_system_status():
             except:
                 break
         storegare = int(disk_usage[4].replace("%", ""))
+        total_SSD_storegare=int(disk_usage[1].replace("G", ""))
     else:
         storegare = "error_storegare"
+    # Get SSD total storegare
+    try:
+        pass
+    except:
+        pass
     # Return Data
-    data = [cpu, ram, storegare, temperature_list_core]
+    data = [cpu, ram, storegare, temperature_list_core,total_SSD_storegare]
     return data
 
 
@@ -705,6 +711,7 @@ def dws_operation_record_AWS():
                         "ram": dws_ops[1],
                         "storegare": dws_ops[2],
                         "tempt": dws_ops[3],
+                        "SSD_storegare":dws_ops[4],
                         "net_sta": software_monitoring[0],
                         "latest_ver": software_monitoring[1],
                         "time_zone": software_monitoring[2],
