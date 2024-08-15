@@ -6,14 +6,14 @@ import serial
 import os
 import psutil
 import socket
-from datetime import datetime
+from datetime import datetime , timedelta
 from pynput import keyboard
 import requests
 import json
 
 ################################################################################
-print("New ver 1.5")
-tool_version = "1.5"
+print("New ver 1.6")
+tool_version = "1.6"
 
 
 # region get_data_init_fucntion
@@ -96,7 +96,6 @@ def git_pull(repository_path):
         time.sleep(1)
     except:
         print("Please check Internet")
-
 
 # endregion
 ################################################################################
@@ -483,18 +482,21 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
         "cpu": f"Check %cpu over 70% - ",
         "ram": "Check %RAM over 70% - ",
         "tempt": "Check overheating IPC over 90% - ",
+        "interrupt": "Interrupt Machine Power",
     }
     priority_dict = {
         "storegare": "HIGH",
         "cpu": "MEDIUM",
         "ram": "MEDIUM",
         "tempt": "MEDIUM",
+        "interrupt": "HIGH",
     }
     categories_dict = {
         "storegare": "Preventive",
         "cpu": "Inspection",
         "ram": "Inspection",
         "tempt": "Inspection",
+        "interrupt": "Inspection",
     }
     procedureTemplateId_dict = {
         "Corrective Maintenance": 1705541,
@@ -505,6 +507,11 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     requesterId_payload = assignees_id_dict["Auto_Manager"]
     vendorIds_payload = vendor_id_dict["SR"]
     # Data for payload
+    interrupt_time = ''
+    if("interrupt" in issue_tag):
+        issue_tag = str(issue_tag).split(' ')[0]
+        interrupt_time = str(issue_tag).split(' ')[1]
+
     estimatedTime_payload = 3600
     startDate_payload = (
         str(datetime.now()).split(" ")[0]
@@ -516,7 +523,7 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     location_id_payload = location_id_dict[str(machine_tag).split("-")[1]]
     # Logic
     categories_payload = categories_dict[issue_tag]
-    description_payload = description_tag_dict["DWS"] + " " + machine_tag
+    description_payload = description_tag_dict["DWS"] + " " + machine_tag + " " + interrupt_time
     priority_payload = priority_dict[issue_tag]
     procedureTemplateId_payload = procedureTemplateId_dict["Corrective Maintenance"]
     title_payload = title_tag_dict[issue_tag] + " " + machine_tag
@@ -540,7 +547,7 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     headers = {"Authorization": "Bearer " + bearer_token}
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=3)
-        if "error" not in json.loads(response.text):
+        if("interrupt" not in issue_tag) and ("error" not in json.loads(response.text)):
             response_id = json.loads(response.text)["id"]
 
             log_record = read_single_data_func("workorders_log_record.txt")
@@ -597,7 +604,6 @@ def maintainX_API_get_workorders_status(
 ################################################################################
 # region init_variable
 machine_tag = read_single_data_func("machine_type.txt")
-
 last_time_stamp = datetime.now()
 new_event_scan = False
 tid = ""
@@ -659,9 +665,41 @@ display_zone_status = zone_display_status_func(machine_tag)
 
 
 # endregion
+
+def check_journal_events(bearer_token,machine_tag):
+
+    end_time = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    start_time = str(datetime.strptime(end_time.split(' ')[0], "%Y-%m-%d") - timedelta(days=1)).split(' ')[0] + " 22:00:00"
+    
+    err_journalctl = None
+    power_interrupt = None
+    interrupt_time = None
+    # Format the command
+    command = f'journalctl --since "{start_time}" --until "{end_time}"'
+    try:
+        # Run the command
+        result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        
+        # Parse the journalctl output
+        journal_entries = result.stdout.splitlines()
+        
+        # Traverse through the logs to find the last "Reboot" and check for "Journal stopped" before it
+        for index, line in enumerate(journal_entries):
+            if ("Reboot" in line) and ("Journal stopped" not in journal_entries[index - 1]):
+                power_interrupt = True
+                interrupt_time = journal_entries[index - 1].split(' ')[2]
+            else:
+                power_interrupt = False                  
+        if (power_interrupt!= None) and (power_interrupt == True):
+            # Create workorders
+            maintainX_API_post_create_workorder(bearer_token, machine_tag, "interrupt " + interrupt_time)           
+    except:
+        err_journalctl = True
+    finally:
+        return [power_interrupt,interrupt_time,err_journalctl]
 ################################################################################
 def dws_operation_record_AWS():
-    global machine_tag, time_update_status, bearer_token, tool_version
+    global machine_tag, time_update_status, bearer_token, tool_version, check_journal_status
     while True:
         # AWS instance public IP address and port
         aws_instance_port = 3000  # Replace with the port your server is listening on
@@ -716,6 +754,7 @@ def dws_operation_record_AWS():
                         "latest_ver": software_monitoring[1],
                         "time_zone": software_monitoring[2],
                         "tool_version": tool_version,
+                        "journal_status": check_journal_status
                     }
                 }
                 try:
@@ -771,7 +810,7 @@ def dws_operation_record_AWS():
                     )
                 if tempt != "error_tempt":
                     for x in tempt:
-                        if x >= 90:
+                        if x >= 95:
                             maintainX_API_get_workorders_status(
                                 bearer_token,
                                 machine_tag,
@@ -790,7 +829,10 @@ thread_get_size_data = threading.Thread(target=get_size_data)
 thread_get_size_data.start()
 thread_get_dws_data = threading.Thread(target=dws_operation_record_AWS)
 thread_get_dws_data.start()
+
 print("Tool is Running")
+check_journal_status = check_journal_events(bearer_token,machine_tag)
+
 with keyboard.Listener(on_press=on_press) as listener:
     timer_thread = threading.Thread(target=check_last_keypress)
     timer_thread.start()
