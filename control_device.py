@@ -507,6 +507,7 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     requesterId_payload = assignees_id_dict["Auto_Manager"]
     vendorIds_payload = vendor_id_dict["SR"]
     # Data for payload
+    interrupt_time = ''
     if("interrupt" in issue_tag):
         list_interrupt = str(issue_tag).split(' ')
         issue_tag = list_interrupt[0]
