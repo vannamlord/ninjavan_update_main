@@ -481,7 +481,7 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
         "storegare": "Storgare over 90% - ",
         "cpu": f"Check %cpu over 70% - ",
         "ram": "Check %RAM over 70% - ",
-        "tempt": "Check overheating IPC over 90% - ",
+        "tempt": "Check overheating IPC over 95% - ",
         "interrupt": "Interrupt Machine Power",
     }
     priority_dict = {
