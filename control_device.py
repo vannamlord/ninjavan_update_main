@@ -507,10 +507,10 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     requesterId_payload = assignees_id_dict["Auto_Manager"]
     vendorIds_payload = vendor_id_dict["SR"]
     # Data for payload
-    interrupt_time = ''
     if("interrupt" in issue_tag):
-        issue_tag = str(issue_tag).split(' ')[0]
-        interrupt_time = str(issue_tag).split(' ')[1]
+        list_interrupt = str(issue_tag).split(' ')
+        issue_tag = list_interrupt[0]
+        interrupt_time = list_interrupt[1]
 
     estimatedTime_payload = 3600
     startDate_payload = (
@@ -673,7 +673,7 @@ def check_journal_events(bearer_token,machine_tag):
     
     err_journalctl = None
     power_interrupt = None
-    interrupt_time = None
+    interrupt_time = ''
     # Format the command
     command = f'journalctl --since "{start_time}" --until "{end_time}"'
     try:
@@ -692,10 +692,13 @@ def check_journal_events(bearer_token,machine_tag):
                 power_interrupt = False                  
         if (power_interrupt!= None) and (power_interrupt == True):
             # Create workorders
+            if(interrupt_time == None):
+                interrupt_time = ''
             maintainX_API_post_create_workorder(bearer_token, machine_tag, "interrupt " + interrupt_time)           
     except:
         err_journalctl = True
     finally:
+        print("End Check Journal Event")
         return [power_interrupt,interrupt_time,err_journalctl]
 ################################################################################
 def dws_operation_record_AWS():
