@@ -686,13 +686,15 @@ def check_journal_events(bearer_token,machine_tag):
         
         # Traverse through the logs to find the last "Reboot" and check for "Journal stopped" before it
         for index, line in enumerate(journal_entries):   
-            if ("Reboot" in line) and ("Journal stopped" not in journal_entries[index - 1]):
-                power_interrupt = True
-                interrupt_time = journal_entries[index - 1].split(' ')[2]                 
+            if ("Reboot" in line):
+                if ("Journal stopped" not in journal_entries[index - 1]):
+                    power_interrupt = True
+                    interrupt_time = journal_entries[index - 1].split(' ')[2]
+                else:
+                    power_interrupt = False
+                    interrupt_time = ''
         if (power_interrupt!= None) and (power_interrupt == True):
             # Create workorders
-            if(interrupt_time == None):
-                interrupt_time = ''
             print("Event Interrupt power occurs")
             maintainX_API_post_create_workorder(bearer_token, machine_tag, "interrupt " + interrupt_time)        
     except:
