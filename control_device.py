@@ -506,12 +506,14 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     assignees_id_payload = assignees_id_dict["Auto_Manager"]
     requesterId_payload = assignees_id_dict["Auto_Manager"]
     vendorIds_payload = vendor_id_dict["SR"]
+    procedureTemplateId_payload = procedureTemplateId_dict["Corrective Maintenance"]
     # Data for payload
     interrupt_time = ''
     if("interrupt" in issue_tag):
         list_interrupt = str(issue_tag).split(' ')
         issue_tag = list_interrupt[0]
         interrupt_time = list_interrupt[1]
+        procedureTemplateId_payload = procedureTemplateId_dict["None"]
 
     estimatedTime_payload = 3600
     startDate_payload = (
@@ -526,7 +528,7 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     categories_payload = categories_dict[issue_tag]
     description_payload = description_tag_dict["DWS"] + " " + machine_tag + " " + interrupt_time
     priority_payload = priority_dict[issue_tag]
-    procedureTemplateId_payload = procedureTemplateId_dict["Corrective Maintenance"]
+    
     title_payload = title_tag_dict[issue_tag] + " " + machine_tag
     # Define the JSON payload
     payload = {
