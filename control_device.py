@@ -500,7 +500,7 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
         "interrupt": "Inspection",
     }
     procedureTemplateId_dict = {
-        "Corrective Maintenance": 1705541,
+        "Corrective Maintenance": 2000861,
         "None": None,
     }
     # Fill data for payload region
