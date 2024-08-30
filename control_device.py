@@ -899,7 +899,7 @@ thread_get_dws_data.start()
 
 print("Tool is Running")
 check_journal_status = check_journal_events(bearer_token, machine_tag)
-check_counter_journal = monthly_check_journal_events()
+#check_counter_journal = monthly_check_journal_events()
 # with keyboard.Listener(on_press=on_press) as listener:
 #     timer_thread = threading.Thread(target=check_last_keypress)
 #     timer_thread.start()
