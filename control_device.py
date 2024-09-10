@@ -12,8 +12,8 @@ import requests
 import json
 
 ################################################################################
-print("New ver 1.7")
-tool_version = "1.7"
+print("New ver 1.8")
+tool_version = "1.8"
 
 
 # region get_data_init_fucntion
@@ -674,48 +674,7 @@ display_zone_status = zone_display_status_func(machine_tag)
 
 # endregion
 # region check Daily and Monthly for Interrupt Power
-def monthly_check_journal_events():
-    today = datetime.now()
-    tomorrow = today + timedelta(days=1)
-    file_path_1 = "/home/admin1/Desktop/dws_record/monthly_journal_counter.txt"
-    file_path_2 = "/home/admin1/Desktop/dws_record/last_monthly_journal_counter.txt"
-    file_path_3 = "/home/admin1/Desktop/dws_record/tracking_last_month_saved.txt"
-    if not os.path.isfile(file_path_3):
-        with open(file_path_3, "a") as file:
-            file.write("False")
-        file.close()
-    tracking_last_month = read_single_data_func("tracking_last_month_saved.txt")
-    if "False" in tracking_last_month:
-        if tomorrow.day == 1:
-            try:
-                counter = read_single_data_func("monthly_journal_counter.txt")
-
-                # Save last monthly counter
-                with open(file_path_2, "a") as file:
-                    file.write(counter)
-                file.close()
-
-                # Reset counter for next monthly counter
-                with open(file_path_1, "a") as file:
-                    file.write("0")
-                file.close()
-
-                # Save last monthly counter Status
-                with open(file_path_3, "a") as file:
-                    file.write("True")
-                file.close()
-            except:
-                pass
-    elif tomorrow.day == 2:
-        # Save last monthly counter Status
-        with open(file_path_3, "a") as file:
-            file.write("False")
-        file.close()
-
-
 def check_journal_events(bearer_token, machine_tag):
-    today = datetime.now()
-    tomorrow = today + timedelta(days=1)
     end_time = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     start_time = (
         str(
@@ -726,12 +685,6 @@ def check_journal_events(bearer_token, machine_tag):
     err_journalctl = None
     power_interrupt = None
     interrupt_time = ""
-    file_path = "/home/admin1/Desktop/dws_record/monthly_journal_counter.txt"
-    if not os.path.isfile(file_path):
-        with open(file_path, "a") as file:
-            file.write('0')
-        file.close()
-    counter_journal = int(read_single_data_func("monthly_journal_counter.txt"))
     # Format the command
     command = f'journalctl --since "{start_time}" --until "{end_time}"'
     try:
@@ -757,7 +710,6 @@ def check_journal_events(bearer_token, machine_tag):
                         + "---"
                         + journal_entries[index + 1].split(" ")[2]
                     )
-                    counter_journal += 1
                 else:
                     power_interrupt = False
                     interrupt_time = ""
@@ -771,13 +723,6 @@ def check_journal_events(bearer_token, machine_tag):
         err_journalctl = True
     finally:
         print("End Check Journal Event")
-
-        # Write the data to the file
-        with open(file_path, "a") as file:
-            file.write(str(counter_journal))
-        file.close()
-        monthly_check_journal_events()
-
         return [power_interrupt, interrupt_time, err_journalctl]
 
 
@@ -786,7 +731,7 @@ def check_journal_events(bearer_token, machine_tag):
 
 ################################################################################
 def dws_operation_record_AWS():
-    global machine_tag, time_update_status, bearer_token, tool_version, check_journal_status
+    global machine_tag, time_update_status, bearer_token, tool_version
     while True:
         # AWS instance public IP address and port
         aws_instance_port = 3000  # Replace with the port your server is listening on
@@ -829,18 +774,6 @@ def dws_operation_record_AWS():
                 pass
             if aws_instance_sta == "Running":
                 software_monitoring = check_software_sta_func()
-                file_path = (
-                    "/home/admin1/Desktop/dws_record/last_monthly_journal_counter.txt"
-                )
-                if os.path.isfile(file_path):
-                    last_month_counter = int(
-                        read_single_data_func("last_monthly_journal_counter.txt")
-                    )
-                else:
-                    last_month_counter = int(
-                        read_single_data_func("monthly_journal_counter.txt")
-                    )
-
                 data_to_send = {
                     machine_tag: {
                         "time": str(datetime.now()),
@@ -854,7 +787,6 @@ def dws_operation_record_AWS():
                         "time_zone": software_monitoring[2],
                         "tool_version": tool_version,
                         "journal_status": check_journal_status,
-                        "counter_journal": last_month_counter,
                     }
                 }
                 try:
@@ -935,7 +867,6 @@ thread_get_dws_data.start()
 
 print("Tool is Running")
 
-# check_counter_journal = monthly_check_journal_events()
 # with keyboard.Listener(on_press=on_press) as listener:
 #     timer_thread = threading.Thread(target=check_last_keypress)
 #     timer_thread.start()
