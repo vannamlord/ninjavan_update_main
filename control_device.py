@@ -12,10 +12,9 @@ import requests
 import json
 
 ################################################################################
-print("New ver 1.8")
-tool_version = "1.8"
-
-
+print("New ver 1.9")
+tool_version = "1.9"
+################################################################################
 # region get_data_init_fucntion
 ################################################################################
 def read_single_data_func(data):
@@ -366,10 +365,21 @@ def check_software_sta_func():
             system_timezone = file.read().strip()
     except:
         system_timezone = "error_timezone"
-    data = [net_check, latest_folder, system_timezone]
+    try:
+        total_size = ''
+        result = subprocess.run(['lsblk', '-d', '-o', 'SIZE'], stdout=subprocess.PIPE, text=True)
+        # Split the output into lines
+        lines = result.stdout.strip().split('\n')
+
+        # Extract the size value from the second line (the first line is the header "SIZE")
+        if len(lines) > 1:
+            total_size = lines[1].strip()
+        else:
+            total_size = 'Err'
+    except:
+        total_size = 'Err'
+    data = [net_check, latest_folder, system_timezone,total_size]
     return data
-
-
 # endregion
 ################################################################################
 # region call_API_MaintainX_function
@@ -610,12 +620,67 @@ def maintainX_API_get_workorders_status(
 
 # endregion
 ################################################################################
+# region check_Daily_Interrupt_Power_function
+def check_journal_events(bearer_token, machine_tag):
+    end_time = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    start_time = (
+        str(
+            datetime.strptime(end_time.split(" ")[0], "%Y-%m-%d") - timedelta(days=1)
+        ).split(" ")[0]
+        + " 23:59:59"
+    )
+    err_journalctl = False
+    power_interrupt = False
+    interrupt_time = ""
+    # Format the command
+    command = f'journalctl --since "{start_time}" --until "{end_time}"'
+    try:
+        # Run the command
+        result = subprocess.run(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        # Parse the journalctl output
+        journal_entries = result.stdout.splitlines()
+
+        # Traverse through the logs to find the last "Reboot" and check for "Journal stopped" before it
+        for index, line in enumerate(journal_entries):
+            if "Reboot" in line:
+                if "Journal stopped" not in journal_entries[index - 1]:
+                    power_interrupt = True
+                    interrupt_time = (
+                        journal_entries[index - 1].split(" ")[2]
+                        + "---"
+                        + journal_entries[index + 1].split(" ")[2]
+                    )
+                else:
+                    power_interrupt = False
+                    interrupt_time = ""
+        if (power_interrupt == True):
+            # Create workorders
+            print("Event Interrupt power occurs")
+            maintainX_API_post_create_workorder(
+                bearer_token, machine_tag, "interrupt" + " " + interrupt_time
+            )
+    except:
+        err_journalctl = True
+    finally:
+        print("End Check Journal Event")
+        return [power_interrupt, interrupt_time, err_journalctl]
+
+
+# endregion
+################################################################################
 # region init_variable
 machine_tag = read_single_data_func("machine_type.txt")
 last_time_stamp = datetime.now()
 new_event_scan = False
 tid = ""
-##############################################################################################
+#################################################################################
 # MODULE_CHECK_SIZE_CORE
 # default_note ['Lenght','width','height','weight'] -> Unit: cm
 # size_compare_note [XS<=1000, S<=4000, M<=8000,L<=15000,XL<=50000, XXL>50000] -> Unit: gram
@@ -673,62 +738,6 @@ display_zone_status = zone_display_status_func(machine_tag)
 
 
 # endregion
-# region check Daily and Monthly for Interrupt Power
-def check_journal_events(bearer_token, machine_tag):
-    end_time = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    start_time = (
-        str(
-            datetime.strptime(end_time.split(" ")[0], "%Y-%m-%d") - timedelta(days=1)
-        ).split(" ")[0]
-        + " 23:59:59"
-    )
-    err_journalctl = False
-    power_interrupt = False
-    interrupt_time = ""
-    # Format the command
-    command = f'journalctl --since "{start_time}" --until "{end_time}"'
-    try:
-        # Run the command
-        result = subprocess.run(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        # Parse the journalctl output
-        journal_entries = result.stdout.splitlines()
-
-        # Traverse through the logs to find the last "Reboot" and check for "Journal stopped" before it
-        for index, line in enumerate(journal_entries):
-            if "Reboot" in line:
-                if "Journal stopped" not in journal_entries[index - 1]:
-                    power_interrupt = True
-                    interrupt_time = (
-                        journal_entries[index - 1].split(" ")[2]
-                        + "---"
-                        + journal_entries[index + 1].split(" ")[2]
-                    )
-                else:
-                    power_interrupt = False
-                    interrupt_time = ""
-        if (power_interrupt == True):
-            # Create workorders
-            print("Event Interrupt power occurs")
-            maintainX_API_post_create_workorder(
-                bearer_token, machine_tag, "interrupt" + " " + interrupt_time
-            )
-    except:
-        err_journalctl = True
-    finally:
-        print("End Check Journal Event")
-        return [power_interrupt, interrupt_time, err_journalctl]
-
-
-# endregion
-
-
 ################################################################################
 def dws_operation_record_AWS():
     global machine_tag, time_update_status, bearer_token, tool_version
@@ -782,6 +791,7 @@ def dws_operation_record_AWS():
                         "storegare": dws_ops[2],
                         "tempt": dws_ops[3],
                         "SSD_storegare": dws_ops[4],
+                        "total_size":software_monitoring[3],
                         "net_sta": software_monitoring[0],
                         "latest_ver": software_monitoring[1],
                         "time_zone": software_monitoring[2],
