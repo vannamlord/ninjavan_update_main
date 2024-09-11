@@ -682,8 +682,8 @@ def check_journal_events(bearer_token, machine_tag):
         ).split(" ")[0]
         + " 23:59:59"
     )
-    err_journalctl = None
-    power_interrupt = None
+    err_journalctl = False
+    power_interrupt = False
     interrupt_time = ""
     # Format the command
     command = f'journalctl --since "{start_time}" --until "{end_time}"'
@@ -713,7 +713,7 @@ def check_journal_events(bearer_token, machine_tag):
                 else:
                     power_interrupt = False
                     interrupt_time = ""
-        if (power_interrupt != None) and (power_interrupt == True):
+        if (power_interrupt == True):
             # Create workorders
             print("Event Interrupt power occurs")
             maintainX_API_post_create_workorder(
