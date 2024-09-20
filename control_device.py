@@ -12,8 +12,10 @@ import requests
 import json
 
 ################################################################################
-print("New ver 1.9")
-tool_version = "1.9"
+print("New ver 1.1.0")
+tool_version = "1.1.0"
+
+
 ################################################################################
 # region get_data_init_fucntion
 ################################################################################
@@ -366,20 +368,24 @@ def check_software_sta_func():
     except:
         system_timezone = "error_timezone"
     try:
-        total_size = ''
-        result = subprocess.run(['lsblk', '-d', '-o', 'SIZE'], stdout=subprocess.PIPE, text=True)
+        total_size = ""
+        result = subprocess.run(
+            ["lsblk", "-d", "-o", "SIZE"], stdout=subprocess.PIPE, text=True
+        )
         # Split the output into lines
-        lines = result.stdout.strip().split('\n')
+        lines = result.stdout.strip().split("\n")
 
         # Extract the size value from the second line (the first line is the header "SIZE")
         if len(lines) > 1:
             total_size = lines[1].strip()
         else:
-            total_size = 'Err'
+            total_size = "Err"
     except:
-        total_size = 'Err'
-    data = [net_check, latest_folder, system_timezone,total_size]
+        total_size = "Err"
+    data = [net_check, latest_folder, system_timezone, total_size]
     return data
+
+
 # endregion
 ################################################################################
 # region call_API_MaintainX_function
@@ -622,13 +628,27 @@ def maintainX_API_get_workorders_status(
 ################################################################################
 # region check_Daily_Interrupt_Power_function
 def check_journal_events(bearer_token, machine_tag):
+    file_path = "/home/admin1/Desktop/dws_record/time_check_daily.txt"
     end_time = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    start_time = (
-        str(
-            datetime.strptime(end_time.split(" ")[0], "%Y-%m-%d") - timedelta(days=1)
-        ).split(" ")[0]
-        + " 23:59:59"
-    )
+    if os.path.isfile(file_path):
+        start_time = read_single_data_func("time_check_daily.txt")
+        with open(file_path, 'w') as file:
+            # Write the data to the file
+            file.write(end_time)
+        file.close()
+    else:
+        start_time = (
+            str(
+                datetime.strptime(end_time.split(" ")[0], "%Y-%m-%d")
+                - timedelta(days=1)
+            ).split(" ")[0]
+            + " 23:59:59"
+        )
+        with open(file_path, 'a') as file:
+            # Write the data to the file
+            file.write(end_time)
+        file.close()
+
     err_journalctl = False
     power_interrupt = False
     interrupt_time = ""
@@ -660,7 +680,7 @@ def check_journal_events(bearer_token, machine_tag):
                 else:
                     power_interrupt = False
                     interrupt_time = ""
-        if (power_interrupt == True):
+        if power_interrupt == True:
             # Create workorders
             print("Event Interrupt power occurs")
             maintainX_API_post_create_workorder(
@@ -791,7 +811,7 @@ def dws_operation_record_AWS():
                         "storegare": dws_ops[2],
                         "tempt": dws_ops[3],
                         "SSD_storegare": dws_ops[4],
-                        "total_size":software_monitoring[3],
+                        "total_size": software_monitoring[3],
                         "net_sta": software_monitoring[0],
                         "latest_ver": software_monitoring[1],
                         "time_zone": software_monitoring[2],
