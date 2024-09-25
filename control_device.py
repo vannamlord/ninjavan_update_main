@@ -12,8 +12,8 @@ import requests
 import json
 
 ################################################################################
-print("New ver 1.1.0")
-tool_version = "1.1.0"
+print("New ver 1.1.1")
+tool_version = "1.1.1"
 
 
 ################################################################################
@@ -386,6 +386,23 @@ def check_software_sta_func():
     return data
 
 
+def get_mac_address(interface_name):
+    try:
+        # Run the command to get the interface details
+        result = subprocess.run(['ip', 'link', 'show', interface_name], capture_output=True, text=True, check=True)
+        
+        # Extract MAC address from the command output
+        output = result.stdout
+        for line in output.splitlines():
+            if 'link/ether' in line:
+                # MAC address is the second item in the line
+                mac_address = line.split()[1]
+                return mac_address
+        return "NoLAN"
+    except subprocess.CalledProcessError:
+        return "NoLAN"
+
+
 # endregion
 ################################################################################
 # region call_API_MaintainX_function
@@ -632,7 +649,7 @@ def check_journal_events(bearer_token, machine_tag):
     end_time = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     if os.path.isfile(file_path):
         start_time = read_single_data_func("time_check_daily.txt")
-        with open(file_path, 'w') as file:
+        with open(file_path, "w") as file:
             # Write the data to the file
             file.write(end_time)
         file.close()
@@ -644,7 +661,7 @@ def check_journal_events(bearer_token, machine_tag):
             ).split(" ")[0]
             + " 23:59:59"
         )
-        with open(file_path, 'a') as file:
+        with open(file_path, "a") as file:
             # Write the data to the file
             file.write(end_time)
         file.close()
@@ -776,7 +793,7 @@ def dws_operation_record_AWS():
             else:
                 time_update_status = monitoring_time + 1
             if monitoring_time == 6:
-                subprocess.run(["shutdown", "now", "-r"])
+                subprocess.run(["shutdown", "-r", "now"])
                 continue
             try:
                 subprocess.run(["rm", "-f", "aws_ip_addr.txt"])
@@ -800,8 +817,8 @@ def dws_operation_record_AWS():
                 aws_instance_ip = aws_instance.split(":")[0]
             except:
                 aws_instance_sta = "Stopped"
-                pass
             if aws_instance_sta == "Running":
+                mac_address = get_mac_address('enp1s0')
                 software_monitoring = check_software_sta_func()
                 data_to_send = {
                     machine_tag: {
@@ -813,6 +830,7 @@ def dws_operation_record_AWS():
                         "SSD_storegare": dws_ops[4],
                         "total_size": software_monitoring[3],
                         "net_sta": software_monitoring[0],
+                        "mac_address": mac_address,
                         "latest_ver": software_monitoring[1],
                         "time_zone": software_monitoring[2],
                         "tool_version": tool_version,
