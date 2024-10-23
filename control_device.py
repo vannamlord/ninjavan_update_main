@@ -709,55 +709,56 @@ def check_journal_events(bearer_token, machine_tag):
                     )
                 else:
                     power_interrupt = False
-                    interrupt_time = ""
-        # Verify status of power_interrupt
-        time_format = "%H:%M:%S"
-        time_close = datetime.strptime(interrupt_time.split("---")[0], time_format)
-        time_start = datetime.strptime(interrupt_time.split("---")[1], time_format)
-        time_difference = (time_start - time_close).total_seconds()
+                    interrupt_time = ''
+        if(interrupt_time != ''):
+            # Verify status of power_interrupt
+            time_format = "%H:%M:%S"
+            time_close = datetime.strptime(interrupt_time.split("---")[0], time_format)
+            time_start = datetime.strptime(interrupt_time.split("---")[1], time_format)
+            time_difference = (time_start - time_close).total_seconds()
 
-        try:
-            file_path = "/home/admin1/Desktop/dws_record/CRC_Error_Count.txt"
-            counter_record = None
-            if os.path.isfile(file_path):
-                counter_record = int(read_single_data_func("CRC_Error_Count.txt"))
+            try:
+                file_path = "/home/admin1/Desktop/dws_record/CRC_Error_Count.txt"
+                counter_record = None
+                if os.path.isfile(file_path):
+                    counter_record = int(read_single_data_func("CRC_Error_Count.txt"))
 
-            # Run the command
-            raw_value = None
-            result = subprocess.run(
-                ["sudo", "smartctl", "-a", "/dev/sda"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=True,  # Raises CalledProcessError if the command fails
-            )
-            # Parse the output to find UDMA_CRC_Error_Count
-            output = result.stdout
-            for line in output.splitlines():
-                if "UDMA_CRC_Error_Count" in line:
-                    parts = line.split()
-                    if len(parts) > 9:
-                        raw_value = int(parts[9])
-            if raw_value == None or counter_record == None:
-                raw_value = counter_record = 0
+                # Run the command
+                raw_value = None
+                result = subprocess.run(
+                    ["sudo", "smartctl", "-a", "/dev/sda"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True,  # Raises CalledProcessError if the command fails
+                )
+                # Parse the output to find UDMA_CRC_Error_Count
+                output = result.stdout
+                for line in output.splitlines():
+                    if "UDMA_CRC_Error_Count" in line:
+                        parts = line.split()
+                        if len(parts) > 9:
+                            raw_value = int(parts[9])
+                if raw_value == None or counter_record == None:
+                    raw_value = counter_record = 0
 
-            with open(file_path, "w") as file:
-                # Write the data to the file
-                file.write(raw_value)
-            file.close()
+                with open(file_path, "w") as file:
+                    # Write the data to the file
+                    file.write(raw_value)
+                file.close()
 
-            # Check the conditions to set event_issue
-            if raw_value > counter_record:
-                if counter_record != 0:
+                # Check the conditions to set event_issue
+                if raw_value > counter_record:
+                    if counter_record != 0:
+                        power_interrupt = True
+                elif time_difference < 15 * 60:
                     power_interrupt = True
-            elif time_difference < 15 * 60:
-                power_interrupt = True
-            elif (
-                time_difference > 3 * 3600 and time_close.hour < 2
-            ):  # Over 3 hours and time_close is between 00:00 and 02:00
-                power_interrupt = False
-        except:
-            pass
+                elif (
+                    time_difference > 3 * 3600 and time_close.hour < 2
+                ):  # Over 3 hours and time_close is between 00:00 and 02:00
+                    power_interrupt = False
+            except:
+                pass
 
         if power_interrupt == True:
             # Create workorders
