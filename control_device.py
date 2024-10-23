@@ -10,10 +10,14 @@ from datetime import datetime, timedelta
 from pynput import keyboard
 import requests
 import json
+import calendar
+import shutil
 
 ################################################################################
-print("New ver 1.1.1")
-tool_version = "1.1.1"
+print("New ver 1.1.2")
+tool_version = "1.1.2"
+defuse_arduino = False
+defuse_module_check_size = False
 
 
 ################################################################################
@@ -389,12 +393,17 @@ def check_software_sta_func():
 def get_mac_address(interface_name):
     try:
         # Run the command to get the interface details
-        result = subprocess.run(['ip', 'link', 'show', interface_name], capture_output=True, text=True, check=True)
-        
+        result = subprocess.run(
+            ["ip", "link", "show", interface_name],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
         # Extract MAC address from the command output
         output = result.stdout
         for line in output.splitlines():
-            if 'link/ether' in line:
+            if "link/ether" in line:
                 # MAC address is the second item in the line
                 mac_address = line.split()[1]
                 return mac_address
@@ -409,6 +418,15 @@ def get_mac_address(interface_name):
 ################################################################################
 # API MaintainX working
 def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
+    # process any data
+    try:
+        disk_usage = get_disk_usage("/dev/sda3")
+    except:
+        disk_usage = get_disk_usage("/dev/sda2")
+    percent_disk_usage = disk_usage[4]
+    if issue_tag != "storegare":
+        percent_disk_usage = ""
+
     # Define the API endpoint
     url = "https://api.getmaintainx.com/v1/workorders"
     machine_id_dict = {
@@ -561,7 +579,13 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     # Logic
     categories_payload = categories_dict[issue_tag]
     description_payload = (
-        description_tag_dict["DWS"] + " " + machine_tag + " " + interrupt_time
+        description_tag_dict["DWS"]
+        + " "
+        + machine_tag
+        + " "
+        + interrupt_time
+        + "-"
+        + percent_disk_usage
     )
     priority_payload = priority_dict[issue_tag]
 
@@ -649,22 +673,12 @@ def check_journal_events(bearer_token, machine_tag):
     end_time = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     if os.path.isfile(file_path):
         start_time = read_single_data_func("time_check_daily.txt")
-        with open(file_path, "w") as file:
-            # Write the data to the file
-            file.write(end_time)
-        file.close()
     else:
-        start_time = (
-            str(
-                datetime.strptime(end_time.split(" ")[0], "%Y-%m-%d")
-                - timedelta(days=1)
-            ).split(" ")[0]
-            + " 23:59:59"
-        )
-        with open(file_path, "a") as file:
-            # Write the data to the file
-            file.write(end_time)
-        file.close()
+        start_time = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d 23:59:59")
+    with open(file_path, "w") as file:
+        # Write the data to the file
+        file.write(end_time)
+    file.close()
 
     err_journalctl = False
     power_interrupt = False
@@ -697,17 +711,159 @@ def check_journal_events(bearer_token, machine_tag):
                 else:
                     power_interrupt = False
                     interrupt_time = ""
+        # Verify status of power_interrupt
+        time_format = "%H:%M:%S"
+        time_close = datetime.strptime(interrupt_time.split("---")[0], time_format)
+        time_start = datetime.strptime(interrupt_time.split("---")[1], time_format)
+        time_difference = (time_start - time_close).total_seconds()
+
+        try:
+            file_path = "/home/admin1/Desktop/dws_record/CRC_Error_Count.txt"
+            counter_record = None
+            if os.path.isfile(file_path):
+                counter_record = int(read_single_data_func("CRC_Error_Count.txt"))
+
+            # Run the command
+            raw_value = None
+            result = subprocess.run(
+                ["sudo", "smartctl", "-a", "/dev/sda"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,  # Raises CalledProcessError if the command fails
+            )
+            # Parse the output to find UDMA_CRC_Error_Count
+            output = result.stdout
+            for line in output.splitlines():
+                if "UDMA_CRC_Error_Count" in line:
+                    parts = line.split()
+                    if len(parts) > 9:
+                        raw_value = int(parts[9])
+            if raw_value == None or counter_record == None:
+                raw_value = counter_record = 0
+
+            with open(file_path, "w") as file:
+                # Write the data to the file
+                file.write(raw_value)
+            file.close()
+
+            # Check the conditions to set event_issue
+            if raw_value > counter_record:
+                if counter_record != 0:
+                    power_interrupt = True
+            elif time_difference < 15 * 60:
+                power_interrupt = True
+            elif (
+                time_difference > 3 * 3600 and time_close.hour < 2
+            ):  # Over 3 hours and time_close is between 00:00 and 02:00
+                power_interrupt = False
+        except:
+            pass
+
         if power_interrupt == True:
             # Create workorders
-            print("Event Interrupt power occurs")
             maintainX_API_post_create_workorder(
-                bearer_token, machine_tag, "interrupt" + " " + interrupt_time
+                bearer_token,
+                machine_tag,
+                "interrupt"
+                + " "
+                + interrupt_time
+                + "-"
+                + str(raw_value - counter_record),
             )
     except:
         err_journalctl = True
     finally:
         print("End Check Journal Event")
         return [power_interrupt, interrupt_time, err_journalctl]
+
+
+# endregion
+################################################################################
+# region Clear_data (Full storage handling)
+def get_disk_usage(disk):
+    return list(
+        filter(
+            None,
+            subprocess.run(
+                ["df", disk], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+            )
+            .stdout.decode("utf-8")
+            .split("\n")[1]
+            .split(" "),
+        )
+    )
+
+
+def handle_clear_data():
+    get_current_year = int(datetime.now().strftime("%Y"))
+    handle_dir_Pic(get_current_year)
+    handle_dir_Log()
+
+
+def remove_dir(data):
+    try:
+        directory = f"/home/admin1/Pictures/nvdws/{data}"
+        subprocess.run(["sudo", "rm", "-r", directory], stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
+def remove_month_directories(year, month):
+    for x in range(1, month + 1):
+        month_str = f"{x:02d}"
+        remove_dir(f"{year}/{month_str}")
+
+
+def remove_days_directories(year, month, last_day):
+    for y in range(1, last_day + 1):
+        day_str = f"{y:02d}"
+        remove_dir(f"{year}/{month:02d}/{day_str}")
+
+
+def handle_dir_Pic(get_current_year):
+    current_month = datetime.today().month
+    current_day = datetime.today().day
+
+    if current_day < 14:
+        if current_month > 1:
+            last_month = current_month - 1
+            last_day_of_last_month = calendar.monthrange(get_current_year, last_month)[
+                1
+            ]
+            leave_day_in_last_month = last_day_of_last_month + current_day - 14
+
+            remove_month_directories(get_current_year, last_month - 1)
+            remove_days_directories(
+                get_current_year, last_month, leave_day_in_last_month - 1
+            )
+        else:
+            last_year = get_current_year - 1
+            leave_day_in_last_month = 17 + current_day
+
+            remove_month_directories(last_year, 12)
+            remove_days_directories(last_year, 12, leave_day_in_last_month - 1)
+    else:
+        remove_month_directories(get_current_year, current_month - 1)
+        leave_day_in_current_month = current_day - (13 if current_day == 14 else 14)
+        remove_days_directories(
+            get_current_year, current_month, leave_day_in_current_month
+        )
+
+
+def handle_dir_Log():
+    try:
+        for x in range(1, 31):
+            for suffix in [".gz", ""]:
+                file_path = f"/var/log/nvdws.log.{x}{suffix}"
+                if os.path.exists(file_path):
+                    subprocess.run(["sudo", "rm", file_path], stderr=subprocess.DEVNULL)
+
+        main_log = "/var/log/nvdws.log"
+        if os.path.exists(main_log):
+            subprocess.run(["sudo", "rm", main_log], stderr=subprocess.DEVNULL)
+    except:
+        pass
 
 
 # endregion
@@ -745,17 +901,17 @@ bearer_token = read_single_data_func("bearer_token.txt")
 ################################################################################
 # Make serial connection with Arduino
 arduino_conn = True
-try:
-    if os.path.exists("/dev/ttyACM0"):
-        serial_write_data = serial.Serial("/dev/ttyACM0", baudrate=57600, timeout=2)
-    elif os.path.exists("/dev/ttyACM1"):
-        serial_write_data = serial.Serial("/dev/ttyACM1", baudrate=57600, timeout=2)
-    else:
+if defuse_arduino:
+    try:
+        if os.path.exists("/dev/ttyACM0"):
+            serial_write_data = serial.Serial("/dev/ttyACM0", baudrate=57600, timeout=2)
+        elif os.path.exists("/dev/ttyACM1"):
+            serial_write_data = serial.Serial("/dev/ttyACM1", baudrate=57600, timeout=2)
+        else:
+            arduino_conn = False
+    except:
         arduino_conn = False
-except:
-    arduino_conn = False
-    print("No connect with Arduino")
-    pass
+        print("No connect with Arduino")
 
 ################################################################################
 zone_ops = ["1-HCM", "2-HAN", "3-DNG", "4-KHH", "5-GIL", "6-DAK", "7-NGA"]
@@ -818,7 +974,7 @@ def dws_operation_record_AWS():
             except:
                 aws_instance_sta = "Stopped"
             if aws_instance_sta == "Running":
-                mac_address = get_mac_address('enp1s0')
+                mac_address = get_mac_address("enp1s0")
                 software_monitoring = check_software_sta_func()
                 data_to_send = {
                     machine_tag: {
@@ -880,6 +1036,7 @@ def dws_operation_record_AWS():
                         "ram",
                     )
                 if (storegare != "error_storegare") and (storegare >= 90):
+                    handle_clear_data()
                     maintainX_API_get_workorders_status(
                         bearer_token,
                         machine_tag,
@@ -905,18 +1062,20 @@ def dws_operation_record_AWS():
 
 
 ################################################################################
-
+# Single function for 1 time checking
 check_journal_status = check_journal_events(bearer_token, machine_tag)
-
-# thread_get_size_data = threading.Thread(target=get_size_data)
-# thread_get_size_data.start()
+#####################################
+if defuse_module_check_size:
+    thread_get_size_data = threading.Thread(target=get_size_data)
+    thread_get_size_data.start()
+#####################################
 thread_get_dws_data = threading.Thread(target=dws_operation_record_AWS)
 thread_get_dws_data.start()
-
+#####################################
 print("Tool is Running")
-
-# with keyboard.Listener(on_press=on_press) as listener:
-#     timer_thread = threading.Thread(target=check_last_keypress)
-#     timer_thread.start()
-#     # Keep the script running
-#     listener.join()
+if defuse_module_check_size:
+    with keyboard.Listener(on_press=on_press) as listener:
+        timer_thread = threading.Thread(target=check_last_keypress)
+        timer_thread.start()
+        # Keep the script running
+        listener.join()
