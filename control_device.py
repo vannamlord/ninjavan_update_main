@@ -16,7 +16,6 @@ import shutil
 ################################################################################
 print("New ver 1.1.2")
 tool_version = "1.1.2"
-defuse_arduino = False
 defuse_module_check_size = False
 
 
@@ -901,7 +900,7 @@ bearer_token = read_single_data_func("bearer_token.txt")
 ################################################################################
 # Make serial connection with Arduino
 arduino_conn = True
-if defuse_arduino:
+if defuse_module_check_size:
     try:
         if os.path.exists("/dev/ttyACM0"):
             serial_write_data = serial.Serial("/dev/ttyACM0", baudrate=57600, timeout=2)
