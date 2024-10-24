@@ -530,10 +530,10 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     }
     title_tag_dict = {
         "storegare": "Storgare over 90% - ",
-        "cpu": f"Check %cpu over 70% - ",
-        "ram": "Check %RAM over 70% - ",
-        "tempt": "Check overheating IPC over 95% - ",
-        "interrupt": "Interrupt Machine Power",
+        "cpu": f"%cpu over 70% - ",
+        "ram": "%RAM over 70% - ",
+        "tempt": "Heating over 95% - ",
+        "interrupt": "Power Issues - ",
     }
     priority_dict = {
         "storegare": "HIGH",
@@ -744,7 +744,7 @@ def check_journal_events(bearer_token, machine_tag):
 
                 with open(file_path, "w") as file:
                     # Write the data to the file
-                    file.write(raw_value)
+                    file.write(str(raw_value))
                 file.close()
 
                 # Check the conditions to set event_issue
