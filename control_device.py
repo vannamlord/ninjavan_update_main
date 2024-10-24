@@ -14,8 +14,8 @@ import calendar
 import shutil
 
 ################################################################################
-print("New ver 1.1.2")
-tool_version = "1.1.2"
+print("New ver 1.1.3")
+tool_version = "1.1.3"
 defuse_module_check_size = False
 
 
@@ -710,27 +710,31 @@ def check_journal_events(bearer_token, machine_tag):
                 else:
                     power_interrupt = False
                     interrupt_time = ""
+        counter_record = None
+        raw_value = None
+        freeze_lock_event = ""
         if interrupt_time != "":
             # Verify status of power_interrupt
             time_format = "%H:%M:%S"
             time_close = datetime.strptime(interrupt_time.split("---")[0], time_format)
             time_start = datetime.strptime(interrupt_time.split("---")[1], time_format)
+            freeze_lock_event = get_closest_event_before_time(str(time_close))
+
             time_difference = (time_start - time_close).total_seconds()
 
             try:
                 file_path = "/home/admin1/Desktop/dws_record/CRC_Error_Count.txt"
-                counter_record = None
+
                 if os.path.isfile(file_path):
                     counter_record = int(read_single_data_func("CRC_Error_Count.txt"))
 
                 # Run the command
-                raw_value = None
                 result = subprocess.run(
                     ["sudo", "smartctl", "-a", "/dev/sda"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    check=True,  # Raises CalledProcessError if the command fails
+                    check=True,
                 )
                 # Parse the output to find UDMA_CRC_Error_Count
                 output = result.stdout
@@ -751,15 +755,12 @@ def check_journal_events(bearer_token, machine_tag):
                 if raw_value > counter_record:
                     if counter_record != 0:
                         power_interrupt = True
-                elif time_difference < 15 * 60:
+                elif time_difference < 3600:
                     power_interrupt = True
-                elif (
-                    time_difference > 3 * 3600 and time_close.hour < 2
-                ):  # Over 3 hours and time_close is between 00:00 and 02:00
+                elif time_difference > 3 * 3600 and time_close.hour < 2:
                     power_interrupt = False
             except:
-                pass
-
+                raise Exception
         if power_interrupt == True:
             # Create workorders
             maintainX_API_post_create_workorder(
@@ -771,13 +772,55 @@ def check_journal_events(bearer_token, machine_tag):
                 + "-"
                 + str(raw_value - counter_record)
                 + "-"
-                + str(raw_value),
+                + str(raw_value)
+                + "-freeze-event-"
+                + freeze_lock_event,
             )
     except:
+        print("Error when Check Journal Event")
         err_journalctl = True
     finally:
         print("End Check Journal Event")
         return [power_interrupt, interrupt_time, err_journalctl]
+
+
+def get_closest_event_before_time(time_close_str):
+    time_close = datetime.strptime(time_close_str, "%Y-%m-%d %H:%M:%S")
+    try:
+        # Execute the grep command to find all entries with "freeze" in /var/log/kern.log
+        result = subprocess.run(
+            ["grep", "-i", "freeze", "/var/log/kern.log"],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        events = result.stdout.strip().split("\n")
+        closest_event = None
+        closest_event_time = None
+
+        for event in events:
+            if event:
+                try:
+                    event_time_str = " ".join(event.split()[:3])
+                    event_time = datetime.strptime(event_time_str, "%b %d %H:%M:%S")
+
+                    event_time = event_time.replace(year=time_close.year)
+
+                    if event_time < time_close and (
+                        closest_event_time is None or event_time > closest_event_time
+                    ):
+                        closest_event = event
+                        closest_event_time = event_time
+                except:
+                    raise Exception
+        if closest_event:
+            time_difference = (time_close - closest_event_time).total_seconds()
+            if time_difference < 1800:
+                return str(closest_event_time)
+        else:
+            raise Exception
+    except:
+        return "None"
 
 
 # endregion
