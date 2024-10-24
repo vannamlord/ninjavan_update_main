@@ -709,8 +709,8 @@ def check_journal_events(bearer_token, machine_tag):
                     )
                 else:
                     power_interrupt = False
-                    interrupt_time = ''
-        if(interrupt_time != ''):
+                    interrupt_time = ""
+        if interrupt_time != "":
             # Verify status of power_interrupt
             time_format = "%H:%M:%S"
             time_close = datetime.strptime(interrupt_time.split("---")[0], time_format)
@@ -769,7 +769,9 @@ def check_journal_events(bearer_token, machine_tag):
                 + " "
                 + interrupt_time
                 + "-"
-                + str(raw_value - counter_record),
+                + str(raw_value - counter_record)
+                + "-"
+                + str(raw_value),
             )
     except:
         err_journalctl = True
