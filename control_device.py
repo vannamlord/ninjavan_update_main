@@ -14,8 +14,8 @@ import calendar
 import shutil
 
 ################################################################################
-print("New ver 1.1.3")
-tool_version = "1.1.3"
+print("New ver 1.1.5")
+tool_version = "1.1.5"
 defuse_module_check_size = False
 
 
@@ -255,7 +255,7 @@ def get_size_data():
 ################################################################################
 # region process_IPC_data_function
 # Record IPC status
-def process_tempt_func():
+def process_temp_func():
     list_tempt = ["", "", "", ""]
     try:
         tempt_info = (
@@ -279,136 +279,67 @@ def process_tempt_func():
 
 
 def check_system_status():
-    # Return an object
-    # Get CPU and memory usage and chip temperature
     try:
         cpu = psutil.cpu_percent(interval=1)
-    except:
-        cpu = "error_cpu"
-    # Get RAM
-    try:
-        ram = float(
-            str(psutil.virtual_memory())
-            .replace(" ", "")
-            .split(",")[2]
-            .replace("percent=", "")
-        )
-    except:
-        ram = "error_ram"
-    # Get Temperature
-    temperature_list_core = process_tempt_func()
-    # Get Storegare
-    try:
+        ram = psutil.virtual_memory().percent
         disk_usage = (
             subprocess.run(["df", "/dev/sda3"], stdout=subprocess.PIPE)
-            .stdout.decode(encoding="utf-8")
+            .stdout.decode("utf-8")
             .split("\n")[1]
-            .split(" ")
+            .split()
         )
-    except:
-        try:
-            disk_usage = (
-                subprocess.run(["df", "/dev/sda2"], stdout=subprocess.PIPE)
-                .stdout.decode(encoding="utf-8")
-                .split("\n")[1]
-                .split(" ")
-            )
-        except:
-            disk_usage = "error_storegare"
-    if disk_usage != "error_storegare":
-        while True:
-            try:
-                disk_usage.remove("")
-            except:
-                break
-        storegare = int(disk_usage[4].replace("%", ""))
-        total_SSD_storegare = int(disk_usage[1].replace("G", ""))
-    else:
-        storegare = "error_storegare"
-    # Get SSD total storegare
-    try:
-        pass
-    except:
-        pass
-    # Return Data
-    data = [cpu, ram, storegare, temperature_list_core, total_SSD_storegare]
-    return data
+        total_ssd_storage = int(disk_usage[1].replace("G", ""))
+        store_usage = int(disk_usage[4].replace("%", ""))
+    except Exception as e:
+        return ["error_cpu", "error_ram", "error_storage", "error_temp"]
+
+    return [cpu, ram, store_usage, process_temp_func(), total_ssd_storage]
 
 
-def check_software_sta_func():
-    # Check network status
+def check_software_status():
     try:
-        net_sta = (
-            subprocess.run(["ifconfig"], stdout=subprocess.PIPE)
-            .stdout.decode(encoding="utf-8")
-            .split("\n")
+        net_check = (
+            "LAN"
+            if "inet"
+            in subprocess.run(["ifconfig"], stdout=subprocess.PIPE)
+            .stdout.decode("utf-8")
+            .split("\n")[1]
+            else "Wifi"
         )
-        net_check_LAN = net_sta[1]
-        if ("inet" in net_check_LAN) and ("netmask" in net_check_LAN):
-            net_check = "LAN"
-        else:
-            net_check = "Wifi"
-    except:
-        net_check = "error_net"
-    # Get Software version
-    try:
-        directory = "/var/tmp/nvdws/updates"
-        latest_folder = None
-        latest_modification_time = 0
-        for dir_name in os.listdir(directory):
-            full_path = os.path.join(directory, dir_name)
-            if os.path.isdir(full_path):
-                modification_time = os.stat(full_path).st_mtime
-                if modification_time > latest_modification_time:
-                    latest_modification_time = modification_time
-                    latest_folder = dir_name
-    except:
-        latest_folder = "error_ver"
-    # Get Timezone monitoring
-    try:
-        with open("/etc/timezone", "r") as file:
+        latest_folder = max(
+            os.listdir("/var/tmp/nvdws/updates"),
+            key=lambda x: os.stat(os.path.join("/var/tmp/nvdws/updates", x)).st_mtime,
+            default="error_ver",
+        )
+        with open("/etc/timezone") as file:
             system_timezone = file.read().strip()
-    except:
-        system_timezone = "error_timezone"
-    try:
-        total_size = ""
-        result = subprocess.run(
-            ["lsblk", "-d", "-o", "SIZE"], stdout=subprocess.PIPE, text=True
+        total_size = (
+            subprocess.run(["lsblk", "-d", "-o", "SIZE"], stdout=subprocess.PIPE)
+            .stdout.decode("utf-8")
+            .strip()
+            .split("\n")[1]
+            .strip()
         )
-        # Split the output into lines
-        lines = result.stdout.strip().split("\n")
+    except Exception:
+        return ["error_net", "error_ver", "error_timezone", "Err"]
 
-        # Extract the size value from the second line (the first line is the header "SIZE")
-        if len(lines) > 1:
-            total_size = lines[1].strip()
-        else:
-            total_size = "Err"
-    except:
-        total_size = "Err"
-    data = [net_check, latest_folder, system_timezone, total_size]
-    return data
+    return [net_check, latest_folder, system_timezone, total_size]
 
 
 def get_mac_address(interface_name):
     try:
-        # Run the command to get the interface details
         result = subprocess.run(
             ["ip", "link", "show", interface_name],
             capture_output=True,
             text=True,
             check=True,
         )
-
-        # Extract MAC address from the command output
-        output = result.stdout
-        for line in output.splitlines():
+        for line in result.stdout.splitlines():
             if "link/ether" in line:
-                # MAC address is the second item in the line
-                mac_address = line.split()[1]
-                return mac_address
-        return "NoLAN"
+                return line.split()[1]
     except subprocess.CalledProcessError:
         return "NoLAN"
+    return "NoLAN"
 
 
 # endregion
@@ -720,7 +651,7 @@ def check_journal_events(bearer_token, machine_tag):
             time_start = datetime.strptime(interrupt_time.split("---")[1], time_format)
             freeze_lock_event = get_closest_event_before_time(str(time_close))
 
-            time_difference = (time_start - time_close).total_seconds()
+            time_difference = abs((time_start - time_close).total_seconds())
 
             try:
                 file_path = "/home/admin1/Desktop/dws_record/CRC_Error_Count.txt"
@@ -752,12 +683,7 @@ def check_journal_events(bearer_token, machine_tag):
                 file.close()
 
                 # Check the conditions to set event_issue
-                if raw_value > counter_record:
-                    if counter_record != 0:
-                        power_interrupt = True
-                elif time_difference < 3600:
-                    power_interrupt = True
-                elif time_difference > 3 * 3600 and time_close.hour < 2:
+                if time_difference > 3 * 3600 and time_close.hour < 2:
                     power_interrupt = False
             except:
                 raise Exception
@@ -946,19 +872,6 @@ bearer_token = read_single_data_func("bearer_token.txt")
 ################################################################################
 # Make serial connection with Arduino
 arduino_conn = True
-if defuse_module_check_size:
-    try:
-        if os.path.exists("/dev/ttyACM0"):
-            serial_write_data = serial.Serial("/dev/ttyACM0", baudrate=57600, timeout=2)
-        elif os.path.exists("/dev/ttyACM1"):
-            serial_write_data = serial.Serial("/dev/ttyACM1", baudrate=57600, timeout=2)
-        else:
-            arduino_conn = False
-    except:
-        arduino_conn = False
-        print("No connect with Arduino")
-
-################################################################################
 zone_ops = ["1-HCM", "2-HAN", "3-DNG", "4-KHH", "5-GIL", "6-DAK", "7-NGA"]
 # And 'e' flag when error code HTTP 500 or update new TID on database
 special_des_task = [
@@ -973,6 +886,17 @@ special_des_task = [
 zone = read_zone_task_func(zone_ops)
 
 display_zone_status = zone_display_status_func(machine_tag)
+if defuse_module_check_size:
+    try:
+        if os.path.exists("/dev/ttyACM0"):
+            serial_write_data = serial.Serial("/dev/ttyACM0", baudrate=57600, timeout=2)
+        elif os.path.exists("/dev/ttyACM1"):
+            serial_write_data = serial.Serial("/dev/ttyACM1", baudrate=57600, timeout=2)
+        else:
+            arduino_conn = False
+    except:
+        arduino_conn = False
+        print("No connect with Arduino")
 
 
 # endregion
@@ -1020,7 +944,7 @@ def dws_operation_record_AWS():
                 aws_instance_sta = "Stopped"
             if aws_instance_sta == "Running":
                 mac_address = get_mac_address("enp1s0")
-                software_monitoring = check_software_sta_func()
+                software_monitoring = check_software_status()
                 data_to_send = {
                     machine_tag: {
                         "time": str(datetime.now()),
@@ -1110,15 +1034,13 @@ def dws_operation_record_AWS():
 # Single function for 1 time checking
 check_journal_status = check_journal_events(bearer_token, machine_tag)
 #####################################
-if defuse_module_check_size:
-    thread_get_size_data = threading.Thread(target=get_size_data)
-    thread_get_size_data.start()
-#####################################
 thread_get_dws_data = threading.Thread(target=dws_operation_record_AWS)
 thread_get_dws_data.start()
 #####################################
 print("Tool is Running")
 if defuse_module_check_size:
+    thread_get_size_data = threading.Thread(target=get_size_data)
+    thread_get_size_data.start()
     with keyboard.Listener(on_press=on_press) as listener:
         timer_thread = threading.Thread(target=check_last_keypress)
         timer_thread.start()
