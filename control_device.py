@@ -18,7 +18,6 @@ print("New ver 1.1.5")
 tool_version = "1.1.5"
 defuse_module_check_size = False
 
-
 ################################################################################
 # region get_data_init_fucntion
 ################################################################################
@@ -356,7 +355,9 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     percent_disk_usage = disk_usage[4]
     if issue_tag != "storegare":
         percent_disk_usage = ""
-
+        
+    re_machine_tag = str(machine_tag).split("-")
+    machhine_name = re_machine_tag[1] + "-" + re_machine_tag[2]
     # Define the API endpoint
     url = "https://api.getmaintainx.com/v1/workorders"
     machine_id_dict = {
@@ -519,7 +520,7 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     )
     priority_payload = priority_dict[issue_tag]
 
-    title_payload = title_tag_dict[issue_tag] + " " + machine_tag
+    title_payload = title_tag_dict[issue_tag] + " " + machhine_name
     # Define the JSON payload
     payload = {
         "assetId": asset_id_payload,
