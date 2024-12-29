@@ -11,11 +11,10 @@ from pynput import keyboard
 import requests
 import json
 import calendar
-import shutil
 
 ################################################################################
-print("New ver 1.1.5")
-tool_version = "1.1.5"
+print("New ver 1.1.6")
+tool_version = "1.1.6"
 defuse_module_check_size = False
 
 ################################################################################
@@ -1033,7 +1032,8 @@ def dws_operation_record_AWS():
 
 ################################################################################
 # Single function for 1 time checking
-check_journal_status = check_journal_events(bearer_token, machine_tag)
+# check_journal_status = check_journal_events(bearer_token, machine_tag)
+check_journal_status = ['None', 'None','None']
 #####################################
 thread_get_dws_data = threading.Thread(target=dws_operation_record_AWS)
 thread_get_dws_data.start()
