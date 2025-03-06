@@ -920,58 +920,60 @@ def dws_operation_record_AWS():
             if monitoring_time == 6:
                 subprocess.run(["shutdown", "-r", "now"])
                 continue
-            try:
-                subprocess.run(["rm", "-f", "aws_ip_addr.txt"])
-                time.sleep(1)
-                repository_path_setup = (
-                    "https://github.com/vannamlord/ninjavan_update_aws_ip.git"
-                )
-                git_pull(repository_path_setup)
-            except:
-                pass
-
-            if not os.path.exists("/home/admin1/Desktop/dws_record/aws_ip_addr.txt"):
-                repository_path_setup = (
-                    "https://github.com/vannamlord/ninjavan_update_aws_ip.git"
-                )
-                git_pull(repository_path_setup)
-            # AWS Monitoring
-            try:
-                aws_instance = read_single_data_func("aws_ip_addr.txt")
-                aws_instance_sta = aws_instance.split(":")[1]
-                aws_instance_ip = aws_instance.split(":")[0]
-            except:
-                aws_instance_sta = "Stopped"
-            if aws_instance_sta == "Running":
-                mac_address = get_mac_address("enp1s0")
-                software_monitoring = check_software_status()
-                data_to_send = {
-                    machine_tag: {
-                        "time": str(datetime.now()),
-                        "cpu": dws_ops[0],
-                        "ram": dws_ops[1],
-                        "storegare": dws_ops[2],
-                        "tempt": dws_ops[3],
-                        "SSD_storegare": dws_ops[4],
-                        "total_size": software_monitoring[3],
-                        "net_sta": software_monitoring[0],
-                        "mac_address": mac_address,
-                        "latest_ver": software_monitoring[1],
-                        "time_zone": software_monitoring[2],
-                        "tool_version": tool_version,
-                        "journal_status": check_journal_status,
-                    }
-                }
+            disable_aws = True
+            if (not disable_aws):
                 try:
-                    # Connect to the server
-                    client_socket.connect((aws_instance_ip, aws_instance_port))
-                    # Send data to the server
-                    client_socket.sendall(json.dumps(data_to_send).encode("utf-8"))
+                    subprocess.run(["rm", "-f", "aws_ip_addr.txt"])
+                    time.sleep(1)
+                    repository_path_setup = (
+                        "https://github.com/vannamlord/ninjavan_update_aws_ip.git"
+                    )
+                    git_pull(repository_path_setup)
                 except:
                     pass
-                finally:
-                    # Close the socket
-                    client_socket.close()
+                        
+                if not os.path.exists("/home/admin1/Desktop/dws_record/aws_ip_addr.txt"):
+                    repository_path_setup = (
+                        "https://github.com/vannamlord/ninjavan_update_aws_ip.git"
+                    )
+                    git_pull(repository_path_setup)
+                # AWS Monitoring
+                try:
+                    aws_instance = read_single_data_func("aws_ip_addr.txt")
+                    aws_instance_sta = aws_instance.split(":")[1]
+                    aws_instance_ip = aws_instance.split(":")[0]
+                except:
+                    aws_instance_sta = "Stopped"
+                if aws_instance_sta == "Running":
+                    mac_address = get_mac_address("enp1s0")
+                    software_monitoring = check_software_status()
+                    data_to_send = {
+                        machine_tag: {
+                            "time": str(datetime.now()),
+                            "cpu": dws_ops[0],
+                            "ram": dws_ops[1],
+                            "storegare": dws_ops[2],
+                            "tempt": dws_ops[3],
+                            "SSD_storegare": dws_ops[4],
+                            "total_size": software_monitoring[3],
+                            "net_sta": software_monitoring[0],
+                            "mac_address": mac_address,
+                            "latest_ver": software_monitoring[1],
+                            "time_zone": software_monitoring[2],
+                            "tool_version": tool_version,
+                            "journal_status": check_journal_status,
+                        }
+                    }
+                    try:
+                        # Connect to the server
+                        client_socket.connect((aws_instance_ip, aws_instance_port))
+                        # Send data to the server
+                        client_socket.sendall(json.dumps(data_to_send).encode("utf-8"))
+                    except:
+                        pass
+                    finally:
+                        # Close the socket
+                        client_socket.close()
             # MaintainX Monitoring
             cpu = dws_ops[0]
             ram = dws_ops[1]
