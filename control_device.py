@@ -488,7 +488,7 @@ def maintainX_API_post_create_workorder(bearer_token, machine_tag, issue_tag):
     assignees_id_payload = assignees_id_dict["Auto_Manager"]
     requesterId_payload = assignees_id_dict["Auto_Manager"]
     vendorIds_payload = vendor_id_dict["SR"]
-    procedureTemplateId_payload = procedureTemplateId_dict["Corrective Maintenance"]
+    procedureTemplateId_payload = procedureTemplateId_dict["None"]
     # Data for payload
     interrupt_time = ""
     if "interrupt" in issue_tag:
